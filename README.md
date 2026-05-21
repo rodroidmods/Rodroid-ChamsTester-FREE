@@ -45,8 +45,7 @@ Every snippet is one-tap copyable from the in-app setup screen.
 ## Build
 
 ```
-ndk-build
-./gradlew assembleRelease
+use aide to build it.
 ```
 
 ABIs: `armeabi-v7a`, `arm64-v8a`. Min SDK 23, target 29.
@@ -77,7 +76,7 @@ The free version is functional but ships with a basic UI and is missing X-Ray, F
 
 This is a **closed source** VIP release.
 
-To get the source, contact **@Rodroid_Mods** on Telegram.
+To get the source, contact **@rodroidmods** on Telegram.
 Payment is accepted as a **Telegram Premium gift (3 months or longer)** or any equivalent subscription gifted to my Telegram account.
 
 - Channel / news / report bugs: https://t.me/+WmudnO0-xoNhMDQ8
