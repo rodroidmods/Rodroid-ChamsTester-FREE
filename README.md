@@ -3,7 +3,7 @@
 > **OpenGL ES chams / wallhack tester for Android games.**
 > Modern, drop-in shader-capture and visual-test menu — built by **Rodroid Mods**.
 
-This is the **VIP** build of Chams Tester — the production-grade counterpart to the free open-source release, with a redesigned UI, additional capture modes, full theming, and every known bug from the free version fixed.
+This is the **FREE** build of Chams Tester.
 
 ---
 
@@ -21,6 +21,8 @@ This is the **VIP** build of Chams Tester — the production-grade counterpart t
 - **Flash Mode** — color-flash chams pass
 - **HUD / Dump Shader** — one-tap shader inventory dump
 - **Dialog Mode toggle** — switch between in-place dialog and floating-window UX
+
+these are VIP features only.
 
 ## What's in the box
 
