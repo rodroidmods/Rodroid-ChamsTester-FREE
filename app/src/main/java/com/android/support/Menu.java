@@ -122,9 +122,8 @@ public class Menu {
     ScrollView scrollView;
     boolean stopChecking, overlayRequired;
     Context getContext;
-    TextView title, icon_back, categorytitle, categorymaintext;
+    TextView title, icon_back, categorytitle, categorymaintext, settings;
     LinearLayout linearCategoryHead;
-    LinearLayout[] mTab = new LinearLayout[10];
     int Index;
 
     //initialize methods from the native library
@@ -156,12 +155,10 @@ public class Menu {
 
     native boolean IsTargetLibraryLoaded();
 
-    // Theme accent used by Buttons/ColorPicker/Shader Inspector
     int color() {
         return ACCENT;
     }
 
-    // Floating shader inspector state
     WindowManager.LayoutParams shaderInspectorParams;
     View shaderInspectorRoot;
     boolean shaderInspectorShown;
@@ -170,9 +167,12 @@ public class Menu {
     EditText shaderSearchBox;
     Handler shaderRefreshHandler;
     Runnable shaderRefreshRunnable;
+
+    WindowManager.LayoutParams shaderPickerParams;
+    View shaderPickerRoot;
+    boolean shaderPickerShown;
     String shaderSearchQuery = "";
 
-    // Library status (settings tab)
     TextView libStatusView;
     Handler libStatusHandler;
     Runnable libStatusRunnable;
@@ -239,16 +239,26 @@ public class Menu {
         wView.getSettings().setAppCacheEnabled(true);
         wView.setOnTouchListener(onTouchListener());
 
-        //********** Settings icon **********
-        TextView settings = new TextView(context); //Android 5 can't show ⚙, instead show other icon instead
-        settings.setText(Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M ? "⚙" : "\uD83D\uDD27");
-        settings.setTextColor(TEXT_COLOR);
-        settings.setTypeface(Typeface.DEFAULT_BOLD);
-        settings.setTextSize(20.0f);
-        RelativeLayout.LayoutParams rlsettings = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        rlsettings.addRule(ALIGN_PARENT_RIGHT);
-        settings.setLayoutParams(rlsettings);
-        settings.setOnClickListener(new View.OnClickListener() {
+        //********** Settings gear (bottom-right of mods view; hidden while in settings) **********
+        settings = new TextView(context);
+        settings.setId(0x7f0a0101);
+        settings.setText("settings");
+        settings.setTextColor(TEXT_COLOR_2);
+        settings.setTypeface(Typeface.createFromAsset(context.getAssets(), "mods.black"));
+        settings.setTextSize(24.0f);
+        settings.setPadding(dp(6), dp(2), dp(6), dp(2));
+
+        //********** Settings back-arrow (top-left of title bar; only visible while in settings) **********
+        final TextView settingsBack = new TextView(context);
+        settingsBack.setId(0x7f0a0103);
+        settingsBack.setText("west");
+        settingsBack.setTextColor(TEXT_COLOR_2);
+        settingsBack.setTypeface(Typeface.createFromAsset(context.getAssets(), "mods.black"));
+        settingsBack.setTextSize(28.0f);
+        settingsBack.setPadding(dp(4), dp(2), dp(4), dp(2));
+        settingsBack.setVisibility(View.GONE);
+
+        View.OnClickListener settingsToggle = new View.OnClickListener() {
             boolean settingsOpen;
 
             @Override
@@ -257,16 +267,22 @@ public class Menu {
                     settingsOpen = !settingsOpen;
                     if (settingsOpen) {
                         scrollView.removeView(mods);
-                        scrollView.addView(mSettings);
+                        if (mSettings.getParent() == null) scrollView.addView(mSettings);
                         scrollView.scrollTo(0, 0);
+                        settings.setVisibility(View.GONE);
+                        settingsBack.setVisibility(View.VISIBLE);
                     } else {
                         scrollView.removeView(mSettings);
-                        scrollView.addView(mods);
+                        if (mods.getParent() == null) scrollView.addView(mods);
+                        settingsBack.setVisibility(View.GONE);
+                        settings.setVisibility(View.VISIBLE);
                     }
                 } catch (IllegalStateException e) {
                 }
             }
-        });
+        };
+        settings.setOnClickListener(settingsToggle);
+        settingsBack.setOnClickListener(settingsToggle);
 
         //********** Settings **********
         mSettings = new LinearLayout(context);
@@ -356,15 +372,38 @@ public class Menu {
         } else {
             mCollapsed.addView(startimage);
         }
+
+        RelativeLayout.LayoutParams sbLP = new RelativeLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        sbLP.addRule(ALIGN_PARENT_LEFT);
+        sbLP.addRule(RelativeLayout.CENTER_VERTICAL);
+        settingsBack.setLayoutParams(sbLP);
+
         relativeLayout.addView(title);
         linearCategoryHead.addView(icon_back);
         linearCategoryHead.addView(categorytitle);
         relativeLayout.addView(linearCategoryHead);
         relativeLayout.addView(textView);
+        relativeLayout.addView(settingsBack);
         mExpanded.addView(relativeLayout);
         scrollView.addView(mods);
         mExpanded.addView(scrollView);
-        mExpanded.addView(textView2);
+
+        LinearLayout bottomRow = new LinearLayout(context);
+        bottomRow.setOrientation(LinearLayout.HORIZONTAL);
+        bottomRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams bottomRowLP = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
+        bottomRow.setLayoutParams(bottomRowLP);
+
+        LinearLayout.LayoutParams subtitleLP = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1.0f);
+        textView2.setLayoutParams(subtitleLP);
+
+        LinearLayout.LayoutParams gearLP = new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        gearLP.setMarginEnd(dp(2));
+        settings.setLayoutParams(gearLP);
+
+        bottomRow.addView(textView2);
+        bottomRow.addView(settings);
+        mExpanded.addView(bottomRow);
 
         Init(context, title, textView2);
     }
@@ -515,10 +554,9 @@ public class Menu {
                 featNum = i - subFeat;
             }
             
-            if (feature.contains("TabAdd__")) {
-                int Int = Integer.parseInt(feature.split("__")[1]);
-                linearLayout = mTab[Int];
-                feature = feature.replaceFirst("TabAdd__" + Int+ "__", "");
+            if (feature.contains("SettingsAdd__")) {
+                linearLayout = mSettings;
+                feature = feature.replaceFirst("SettingsAdd__", "");
             }
             
             String[] strSplit = feature.split("__");
@@ -580,9 +618,6 @@ public class Menu {
                 case "RichWebView":
                     subFeat++;
                     WebTextView(linearLayout, strSplit[1]);
-                    break;
-                case "GridViewLayout":
-                    GridViewLayout(linearLayout, strSplit[1].split(","), strSplit[2].split(","));
                     break;
                 case "ArrayBox":
                     linearLayout.addView(ArrayBox(featNum, strSplit[1], switchedOn));
@@ -948,121 +983,6 @@ public class Menu {
         }
 
         return mainLayout;
-    }
-    
-    private void GridViewLayout(LinearLayout linearLayout, final String[] featName, final String[] featName2) {
-        LinearLayout linearLayout2 = new LinearLayout(getContext);
-        linearLayout2.setOrientation(1);
-
-        final GridLayout gridLayout = new GridLayout(getContext);
-        gridLayout.setLayoutParams(new LayoutParams(-1, -1));
-        gridLayout.setRowCount((featName.length / 2) + (featName.length % 2));
-        gridLayout.setColumnCount(2);
-
-        final LinearLayout[] linearLayoutArr = new LinearLayout[featName.length];
-
-        LinearLayout linearLayout3 = new LinearLayout(this.getContext);
-        linearLayout3.setOrientation(1);
-
-        for (int i = 0; i < featName.length; i++) {
-            GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams();
-            layoutParams.width = 0;
-            layoutParams.height = -2;
-            layoutParams.columnSpec = GridLayout.spec(Integer.MIN_VALUE, 1.0f);
-            layoutParams.setMargins(dp(4), dp(4), dp(4), dp(4));
-
-            LinearLayout linearLayout4 = new LinearLayout(this.getContext);
-            linearLayout4.setOrientation(1);
-            linearLayout4.setGravity(17);
-            GradientDrawable gradientDrawable = new GradientDrawable();
-            gradientDrawable.setColor(GridColor);
-            gradientDrawable.setCornerRadius((float) dp(20));
-            linearLayout4.setBackgroundDrawable(gradientDrawable);
-            linearLayout4.setLayoutParams(layoutParams);
-            linearLayout4.setPadding(dp(7), dp(4), dp(4), dp(4));
-
-            LinearLayout linearLayout5 = new LinearLayout(this.getContext);
-            linearLayout5.setOrientation(0);
-            linearLayout5.setGravity(16);
-
-            TextView textView = new TextView(getContext);
-            textView.setTextColor(TEXT_COLOR);
-            textView.setTextSize(40.0f);
-            textView.setPadding(dp(2), dp(2), dp(2), dp(2));
-            textView.setText(featName2[i]);
-            textView.setTypeface(Typeface.createFromAsset(getContext.getAssets(), "mods.black"));
-
-            final TextView textView2 = new TextView(getContext);
-            textView2.setTextColor(TEXT_COLOR);
-            textView2.setTextSize(15.0f);
-            textView2.setPadding(dp(2), 0, dp(2), 0);
-            textView2.setTypeface(Typeface.DEFAULT_BOLD);
-            textView2.setGravity(17);
-            textView2.setText(featName[i]);
-
-            LayoutParams layoutParams2 = new LayoutParams(-1, -2);
-            layoutParams2.setMargins(0, dp(4), 0, 0);
-
-            final Button button = new Button(this.getContext);
-            button.setText("VIEW");
-            button.setTextColor(TEXT_COLOR_2);
-            button.setLayoutParams(layoutParams2);
-            GradientDrawable gradientDrawable2 = new GradientDrawable();
-            gradientDrawable2.setColor(TEXT_COLOR);
-            gradientDrawable2.setCornerRadius(dp(20));
-            button.setBackground(gradientDrawable2);
-            final int i2;
-            i2  = i;
-            button.setOnClickListener(new OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        button.setEnabled(false);
-                        Index = i2;
-                        String replaceAll = featName[i2];
-                        categorytitle.setText(replaceAll);
-                        categorymaintext.setText(replaceAll);
-                        title.setVisibility(8);
-                        gridLayout.setVisibility(8);
-                        scrollView.scrollTo(0, 0);
-                        linearCategoryHead.setVisibility(0);
-                        int i = 0;
-                        while (i < featName.length) {
-                            linearLayoutArr[i].setVisibility(i2 == i ? 0 : 8);
-                            i++;
-                        }
-                        button.setEnabled(true);
-                    }
-                });
-
-            TextView textView3 = icon_back;
-            textView3.setOnClickListener(new OnClickListener() {
-                    public  void onClick(View view) {
-                        icon_back.setEnabled(false);
-                        linearCategoryHead.setVisibility(8);
-                        linearLayoutArr[Index].setVisibility(8);
-                        scrollView.scrollTo(0, 0);
-                        title.setVisibility(0);
-                        categorymaintext.setText("");
-                        gridLayout.setVisibility(0);
-                        icon_back.setEnabled(true);
-                    }
-                });
-
-            linearLayoutArr[i] = new LinearLayout(getContext);
-            linearLayoutArr[i].setOrientation(1);
-            linearLayoutArr[i].setVisibility(8);
-            mTab[i] = linearLayoutArr[i];
-            linearLayout3.addView(linearLayoutArr[i]);
-            linearLayout5.addView(textView);
-            linearLayout5.addView(textView2);
-            linearLayout4.addView(linearLayout5);
-            linearLayout4.addView(button);
-            gridLayout.addView(linearLayout4);
-        }
-
-        linearLayout2.addView(gridLayout);
-        linearLayout2.addView(linearLayout3);
-        linearLayout.addView(linearLayout2);
     }
 
     private void Switch(LinearLayout linLayout, final int featNum, final String featName, boolean swiOn) {
@@ -1945,17 +1865,17 @@ public class Menu {
     // ====================================================================
     // Shader Picker dialog (RadioGroup + search)
     // ====================================================================
+    @SuppressLint("WrongConstant")
     private void showPickShaderDialog() {
+        if (shaderPickerShown) {
+            return;
+        }
+
         final String[] captured = GetShaderList();
         final List<String> all = new ArrayList<String>();
         all.add("OFF");
         if (captured != null) {
             for (String s : captured) all.add(s);
-        }
-
-        final AlertDialog alert = new AlertDialog.Builder(getContext).create();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            Objects.requireNonNull(alert.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
         }
 
         LinearLayout root = new LinearLayout(getContext);
@@ -1966,6 +1886,7 @@ public class Menu {
         rootBg.setCornerRadius(dp(10));
         rootBg.setStroke(dp(2), TEXT_COLOR);
         root.setBackground(rootBg);
+        root.setLayoutParams(new LinearLayout.LayoutParams(dp(300), WRAP_CONTENT));
 
         LinearLayout titleBar = new LinearLayout(getContext);
         titleBar.setOrientation(LinearLayout.HORIZONTAL);
@@ -1984,7 +1905,18 @@ public class Menu {
         title.setTextColor(TEXT_COLOR_2);
         title.setTextSize(16f);
         title.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams titleTvLp = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
+        title.setLayoutParams(titleTvLp);
         titleBar.addView(title);
+
+        TextView closeX = new TextView(getContext);
+        closeX.setText("  ✕  ");
+        closeX.setTextColor(TEXT_COLOR_2);
+        closeX.setTypeface(Typeface.DEFAULT_BOLD);
+        closeX.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { hidePickShaderDialog(); }
+        });
+        titleBar.addView(closeX);
         root.addView(titleBar);
 
         final EditText search = new EditText(getContext);
@@ -2060,7 +1992,7 @@ public class Menu {
 
         scroll.addView(group);
         root.addView(scroll);
-        
+
         LinearLayout btnRow = new LinearLayout(getContext);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams btnRowLp = new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT);
@@ -2080,7 +2012,7 @@ public class Menu {
         close.setBackground(gdClose);
         close.setLayoutParams(pillLp);
         close.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { alert.dismiss(); }
+            @Override public void onClick(View v) { hidePickShaderDialog(); }
         });
 
         Button select = new Button(getContext);
@@ -2098,15 +2030,66 @@ public class Menu {
                     String pick = all.get(selectedIdx[0]);
                     SetCurrentShader(pick.equals("OFF") ? "Off" : pick);
                 }
-                alert.dismiss();
+                hidePickShaderDialog();
             }
         });
         btnRow.addView(close);
         btnRow.addView(select);
         root.addView(btnRow);
 
-        alert.setView(root);
-        alert.show();
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? 2038 : 2002;
+        shaderPickerParams = new WindowManager.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, type, 0, -3);
+        shaderPickerParams.gravity = Gravity.TOP | Gravity.START;
+        shaderPickerParams.x = dp(20);
+        shaderPickerParams.y = dp(120);
+
+        root.setOnTouchListener(shaderPickerTouchListener());
+
+        shaderPickerRoot = root;
+        try {
+            mWindowManager.addView(shaderPickerRoot, shaderPickerParams);
+            shaderPickerShown = true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to add shader picker", e);
+        }
+    }
+
+    private void hidePickShaderDialog() {
+        if (!shaderPickerShown) return;
+        try {
+            if (shaderPickerRoot != null) mWindowManager.removeView(shaderPickerRoot);
+        } catch (Exception ignored) {}
+        shaderPickerShown = false;
+        shaderPickerRoot = null;
+    }
+
+    private View.OnTouchListener shaderPickerTouchListener() {
+        return new View.OnTouchListener() {
+            float touchX, touchY;
+            int initX, initY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initX = shaderPickerParams.x;
+                        initY = shaderPickerParams.y;
+                        touchX = e.getRawX();
+                        touchY = e.getRawY();
+                        return false;
+                    case MotionEvent.ACTION_MOVE:
+                        shaderPickerParams.x = initX + (int) (e.getRawX() - touchX);
+                        shaderPickerParams.y = initY + (int) (e.getRawY() - touchY);
+                        try {
+                            mWindowManager.updateViewLayout(shaderPickerRoot, shaderPickerParams);
+                        } catch (Exception ignored) {}
+                        return false;
+                    case MotionEvent.ACTION_UP:
+                        return false;
+                }
+                return false;
+            }
+        };
     }
 
     // ====================================================================
